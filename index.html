@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDA Simulator and CFG Simplifier</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero panel">
+      <div>
+        <p class="eyebrow">Theory of Computation Studio</p>
+        <h1>PDA Simulator + CFG Simplifier</h1>
+        <p class="hero-copy">
+          Work with two independent tools in one place: simulate a single-stack PDA step by step,
+          or enter a context-free grammar and simplify it by removing useless symbols, epsilon-productions,
+          and unit productions.
+        </p>
+      </div>
+      <div class="hero-actions">
+        <button id="loadDefaultBtn" class="btn btn-secondary">Load Default PDA</button>
+        <button id="loadSampleCfgBtn" class="btn btn-secondary">Load Sample CFG</button>
+      </div>
+    </header>
+
+    <nav class="tab-bar panel" aria-label="Workflow selector">
+      <button class="tab-btn active" data-tab-target="workflowPda">PDA Simulation</button>
+      <button class="tab-btn" data-tab-target="workflowCfg">CFG Simplification</button>
+    </nav>
+
+    <main>
+      <section id="workflowPda" class="workflow active" aria-labelledby="PDA Simulation">
+        <div class="pda-workspace">
+          <div class="pda-top-grid">
+            <section class="panel editor-panel">
+              <div class="panel-heading">
+                <div>
+                  <p class="panel-kicker">Workflow 1</p>
+                  <h2>Define the PDA 7-tuple</h2>
+                </div>
+                <span class="pill">Use `e` or `&epsilon;` for epsilon</span>
+              </div>
+
+              <div id="pdaMessage" class="message hidden"></div>
+
+              <div class="form-grid">
+                <label>
+                  <span>States (Q)</span>
+                  <input id="statesInput" type="text" placeholder="q0, q1, q_accept">
+                </label>
+
+                <label>
+                  <span>Input Alphabet (&Sigma;)</span>
+                  <input id="inputAlphabetInput" type="text" placeholder="a, b">
+                </label>
+
+                <label>
+                  <span>Stack Alphabet (&Gamma;)</span>
+                  <input id="stackAlphabetInput" type="text" placeholder="Z, A">
+                </label>
+
+                <label>
+                  <span>Start State</span>
+                  <input id="startStateInput" type="text" placeholder="q0">
+                </label>
+
+                <label>
+                  <span>Initial Stack Symbol</span>
+                  <input id="startStackSymbolInput" type="text" placeholder="Z">
+                </label>
+
+                <label>
+                  <span>Accepting States</span>
+                  <input id="acceptingStatesInput" type="text" placeholder="q_accept">
+                </label>
+              </div>
+
+              <label class="textarea-label">
+                <span>Transitions</span>
+                <textarea id="transitionsInput" rows="11" spellcheck="false"></textarea>
+              </label>
+
+              <div class="action-row">
+                <button id="applyPdaBtn" class="btn btn-primary">Apply PDA Definition</button>
+              </div>
+
+              <div class="hint-box">
+                <p>Transition format: <code>currentState, inputSymbol, stackTop -&gt; nextState, pushSymbols</code></p>
+                <p>Examples:</p>
+                <pre>q0, (, Z -> q0, X Z
+q0, ), X -> q0, &epsilon;
+q0, &epsilon;, Z -> q_accept, Z</pre>
+                <p>
+                  Use comma-separated sets for states and alphabets. Push symbols may be written with spaces
+                  (<code>X Z</code>) or, when every stack symbol is one character, as <code>XZ</code>.
+                </p>
+              </div>
+            </section>
+
+            <div class="pda-side-column">
+              <section class="panel execution-panel">
+                <div class="panel-heading">
+                  <div>
+                    <p class="panel-kicker">Execution</p>
+                    <h2>Run an Input String</h2>
+                  </div>
+                  <p id="stepCounter" class="subtle-text">No active simulation</p>
+                </div>
+
+                <div id="runMessage" class="message hidden"></div>
+
+                <div class="input-row">
+                  <label class="grow">
+                    <span>Input String</span>
+                    <input id="testStringInput" type="text" placeholder="Example: (())()">
+                  </label>
+                  <button id="simulateBtn" class="btn btn-primary">Prepare Simulation</button>
+                </div>
+
+                <div class="control-row">
+                  <button id="nextStepBtn" class="btn btn-secondary" disabled>Next Step</button>
+                  <button id="runAllBtn" class="btn btn-secondary" disabled>Run All Steps</button>
+                  <button id="resetBtn" class="btn btn-ghost" disabled>Reset View</button>
+                </div>
+
+                <div class="stack-section">
+                  <div class="stack-head">
+                    <div>
+                      <p class="panel-kicker">Stack</p>
+                      <h3>Top to Bottom</h3>
+                    </div>
+                  </div>
+                  <div id="stackVisual" class="stack-visual empty"></div>
+                </div>
+              </section>
+
+              <section class="panel diagram-panel">
+                <div class="diagram-card-head">
+                  <div>
+                    <p class="panel-kicker">State Diagram</p>
+                    <h3 class="diagram-title">Diagrammatic PDA View</h3>
+                  </div>
+                  <p class="subtle-text diagram-caption">
+                    Start, accepting states, and the active step are highlighted here.
+                  </p>
+                </div>
+                <div id="pdaDiagramContainer" class="diagram-shell">
+                  <p class="empty-cell">Apply a valid PDA to draw its state diagram.</p>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <section class="panel trace-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Step Trace</p>
+                <h2>Current Simulation Overview</h2>
+              </div>
+              <div id="statusBadge" class="status-badge neutral">Ready</div>
+            </div>
+
+            <div class="config-grid">
+              <article class="metric-card">
+                <p class="metric-label">Current State</p>
+                <p id="currentStateValue" class="metric-value">-</p>
+              </article>
+              <article class="metric-card">
+                <p class="metric-label">Remaining Input</p>
+                <p id="remainingInputValue" class="metric-value">-</p>
+              </article>
+              <article class="metric-card metric-wide">
+                <p class="metric-label">Latest Transition</p>
+                <p id="transitionValue" class="metric-value small">Prepare a simulation to begin.</p>
+              </article>
+            </div>
+
+            <div class="table-wrap trace-table-wrap">
+              <table class="steps-table">
+                <thead>
+                  <tr>
+                    <th>Step</th>
+                    <th>State</th>
+                    <th>Remaining Input</th>
+                    <th>Stack</th>
+                    <th>Transition</th>
+                  </tr>
+                </thead>
+                <tbody id="stepsTableBody">
+                  <tr>
+                    <td colspan="5" class="empty-cell">No steps yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel summary-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Current PDA</p>
+                <h2>Machine Summary</h2>
+              </div>
+            </div>
+
+            <div class="tuple-grid">
+              <article class="tuple-card">
+                <p class="tuple-label">States</p>
+                <div id="statesSummary" class="chip-row"></div>
+              </article>
+              <article class="tuple-card">
+                <p class="tuple-label">Input Alphabet</p>
+                <div id="alphabetSummary" class="chip-row"></div>
+              </article>
+              <article class="tuple-card">
+                <p class="tuple-label">Stack Alphabet</p>
+                <div id="stackSummary" class="chip-row"></div>
+              </article>
+              <article class="tuple-card">
+                <p class="tuple-label">Start / Initial Stack</p>
+                <div id="startSummary" class="chip-row"></div>
+              </article>
+              <article class="tuple-card">
+                <p class="tuple-label">Accepting States</p>
+                <div id="acceptingSummary" class="chip-row"></div>
+              </article>
+              <article class="tuple-card tuple-card-wide">
+                <p class="tuple-label">Transitions</p>
+                <div id="transitionSummary" class="transition-list"></div>
+              </article>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="workflowCfg" class="workflow" aria-labelledby="CFG Simplification">
+        <div class="layout cfg-layout">
+          <section class="panel cfg-input-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Workflow 2</p>
+                <h2>Enter a Context-Free Grammar</h2>
+              </div>
+              <span class="pill">One production per line</span>
+            </div>
+
+            <div id="cfgMessage" class="message hidden"></div>
+
+            <label class="textarea-label no-top-gap">
+              <span>CFG Productions</span>
+              <textarea id="cfgInput" rows="14" spellcheck="false" placeholder="S -> AB | a
+A -> aA | ε
+B -> b | C
+C -> b"></textarea>
+            </label>
+
+            <div class="operation-box">
+              <p class="operation-title">Simplification Operations</p>
+              <label class="toggle-row">
+                <input id="removeUselessCheck" type="checkbox" checked>
+                <span>Remove useless symbols</span>
+              </label>
+              <label class="toggle-row">
+                <input id="removeEpsilonCheck" type="checkbox" checked>
+                <span>Remove epsilon-productions</span>
+              </label>
+              <label class="toggle-row">
+                <input id="removeUnitCheck" type="checkbox" checked>
+                <span>Remove unit productions</span>
+              </label>
+            </div>
+
+            <div class="action-row">
+              <button id="simplifyCfgBtn" class="btn btn-primary">Simplify Grammar</button>
+              <button id="clearCfgBtn" class="btn btn-ghost">Clear CFG</button>
+            </div>
+
+            <div class="hint-box">
+              <p>Examples:</p>
+              <pre>S -> AB | a
+A -> aA | ε
+B -> b | C
+C -> b</pre>
+              <p>
+                Nonterminals on the left should be single grammar variables such as <code>S</code>,
+                <code>A</code>, <code>Expr</code>, or <code>&lt;Expr&gt;</code>. On the right-hand side,
+                use spaces or angle brackets when you need multi-character symbols.
+              </p>
+            </div>
+          </section>
+
+          <section class="panel cfg-analysis-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Analysis</p>
+                <h2>Grammar Validation</h2>
+              </div>
+              <div id="cfgValidationBadge" class="status-badge neutral">Not Checked</div>
+            </div>
+
+            <div id="cfgValidationMessage" class="message info">
+              Enter a grammar and run simplification to validate whether it is context-free.
+            </div>
+
+            <div class="config-grid">
+              <article class="metric-card">
+                <p class="metric-label">Start Symbol</p>
+                <p id="cfgStartSymbolValue" class="metric-value">-</p>
+              </article>
+              <article class="metric-card">
+                <p class="metric-label">Is CFG?</p>
+                <p id="cfgTypeValue" class="metric-value">-</p>
+              </article>
+              <article class="metric-card">
+                <p class="metric-label">Original Productions</p>
+                <p id="cfgOriginalCountValue" class="metric-value">-</p>
+              </article>
+              <article class="metric-card">
+                <p class="metric-label">Simplified Productions</p>
+                <p id="cfgSimplifiedCountValue" class="metric-value">-</p>
+              </article>
+            </div>
+
+            <div class="info-panel">
+              <p class="tuple-label">Detected Nonterminals</p>
+              <div id="cfgNonterminalSummary" class="chip-row"></div>
+            </div>
+
+            <div class="info-panel">
+              <p class="tuple-label">Detected Terminals</p>
+              <div id="cfgTerminalSummary" class="chip-row"></div>
+            </div>
+
+            <div class="info-panel">
+              <p class="tuple-label">Simplification Log</p>
+              <div id="simplificationLog" class="log-list">
+                <p class="empty-cell">No simplification has been run yet.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel cfg-result-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="panel-kicker">Result</p>
+                <h2>Simplified Grammar</h2>
+              </div>
+            </div>
+
+            <div class="result-grid">
+              <div class="info-panel">
+                <p class="tuple-label">Original Grammar</p>
+                <div id="originalGrammarOutput" class="grammar-block">
+                  <p class="empty-cell">No grammar loaded.</p>
+                </div>
+              </div>
+
+              <div class="info-panel">
+                <p class="tuple-label">Simplified Grammar</p>
+                <div id="simplifiedGrammarOutput" class="grammar-block">
+                  <p class="empty-cell">Run simplification to see the result.</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
